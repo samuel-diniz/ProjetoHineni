@@ -1,0 +1,8 @@
+# Interface gráfica (Web + Android + iOS com Python puro)
+flet==0.25.2
+
+# Requisições HTTP para a API
+httpx==0.28.0
+
+# Variáveis de ambiente
+python-dotenv==1.0.1

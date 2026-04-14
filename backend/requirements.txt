@@ -1,0 +1,33 @@
+# API Web
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+
+# Banco de Dados
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.0
+
+# Autenticação
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.12
+
+# Configurações e Variáveis de Ambiente
+python-dotenv==1.0.1
+
+# Validação de dados (já vem com FastAPI, mas declarando versão)
+pydantic==2.10.3
+pydantic-settings==2.6.1
+email-validator==2.2.0
+
+# PDF
+reportlab==4.2.5
+
+# Agendador de Tarefas (lembretes automáticos)
+apscheduler==3.10.4
+
+# Requisições HTTP (para WhatsApp API)
+httpx==0.28.0
+
+# Data e Hora com fuso horário
+python-dateutil==2.9.0

@@ -1,0 +1,37 @@
+# Ambientes virtuais Python
+venv/
+.venv/
+env/
+
+# Arquivo de variáveis de ambiente (contém senhas!)
+.env
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Dados do banco (local)
+*.db
+*.sqlite3
+postgres_data/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Build do Flet/Flutter
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
