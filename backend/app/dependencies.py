@@ -75,11 +75,11 @@ def obter_usuario_ativo(
 def exigir_pastor_presidente(
     usuario_atual: models.Usuario = Depends(obter_usuario_ativo)
 ) -> models.Usuario:
-    """Apenas o Pastor Presidente pode acessar"""
-    if usuario_atual.role != models.RoleUsuario.PASTOR_PRESIDENTE:
+    """Apenas o Líder do Ministério pode acessar"""
+    if usuario_atual.role != models.RoleUsuario.LIDER_MINISTERIO:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso restrito ao Pastor Presidente"
+            detail="Acesso restrito ao Líder do Ministério"
         )
     return usuario_atual
 
@@ -87,9 +87,9 @@ def exigir_pastor_presidente(
 def exigir_lider_ou_superior(
     usuario_atual: models.Usuario = Depends(obter_usuario_ativo)
 ) -> models.Usuario:
-    """Líder ou Pastor Presidente podem acessar"""
+    """Líder de departamento ou Líder do Ministério podem acessar"""
     roles_permitidas = {
-        models.RoleUsuario.PASTOR_PRESIDENTE,
+        models.RoleUsuario.LIDER_MINISTERIO,
         models.RoleUsuario.LIDER
     }
     if usuario_atual.role not in roles_permitidas:

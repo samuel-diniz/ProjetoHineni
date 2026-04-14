@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.database import engine, Base
-from app.routers import auth, usuarios, departamentos, dias_culto, escalas, notificacoes
+from app.routers import auth, usuarios, departamentos, dias_culto, escalas, notificacoes, cnpj
 
 
 @asynccontextmanager
@@ -85,6 +85,7 @@ app.include_router(departamentos.router)
 app.include_router(dias_culto.router)
 app.include_router(escalas.router)
 app.include_router(notificacoes.router)
+app.include_router(cnpj.router)
 
 
 # ============================================================

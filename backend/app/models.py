@@ -27,9 +27,9 @@ from app.database import Base
 
 class RoleUsuario(str, enum.Enum):
     """Define os tipos de acesso no sistema"""
-    PASTOR_PRESIDENTE = "PASTOR_PRESIDENTE"   # Admin master
-    LIDER             = "LIDER"               # Admin de departamento
-    MEMBRO            = "MEMBRO"              # Usuário comum
+    LIDER_MINISTERIO = "LIDER_MINISTERIO"   # Admin master (antigo Pastor Presidente)
+    LIDER            = "LIDER"              # Admin de departamento
+    MEMBRO           = "MEMBRO"             # Usuário comum
 
 
 class GeneroUsuario(str, enum.Enum):
@@ -47,6 +47,8 @@ class CargoUsuario(str, enum.Enum):
     PRESBITERO  = "Presbítero"
     EVANGELISTA = "Evangelista"
     PASTOR      = "Pastor"
+    BISPO       = "Bispo"
+    APOSTOLO    = "Apóstolo"
     # Mulheres
     MEMBRA      = "Membra"
     COOPERADORA = "Cooperadora"
@@ -90,11 +92,18 @@ class Igreja(Base):
     """
     __tablename__ = "igrejas"
 
-    id         = Column(Integer, primary_key=True, index=True)
-    nome       = Column(String(200), nullable=False)
-    endereco   = Column(String(300), nullable=True)
-    telefone   = Column(String(20), nullable=True)
-    criado_em  = Column(DateTime, default=datetime.utcnow)
+    id          = Column(Integer, primary_key=True, index=True)
+    nome        = Column(String(200), nullable=False)
+    cnpj        = Column(String(18), unique=True, nullable=False)   # "00.000.000/0000-00"
+    cep         = Column(String(9), nullable=False)                 # "00000-000"
+    logradouro  = Column(String(200), nullable=False)               # "Avenida Paulista"
+    numero      = Column(String(20), nullable=True)                 # "1578"
+    complemento = Column(String(100), nullable=True)                # "Sala 3"
+    bairro      = Column(String(100), nullable=False)
+    cidade      = Column(String(100), nullable=False)
+    uf          = Column(String(2), nullable=False)                 # "SP"
+    telefone    = Column(String(20), nullable=True)
+    criado_em   = Column(DateTime, default=datetime.utcnow)
 
     # Relacionamentos: uma Igreja tem muitos Usuários e Departamentos
     # 'back_populates' cria a relação no sentido inverso também
@@ -110,13 +119,14 @@ class Igreja(Base):
 class Usuario(Base):
     """
     Representa qualquer pessoa no sistema:
-    Pastor Presidente, Líder ou Membro comum.
+    Líder do Ministério, Líder de Departamento ou Membro comum.
     """
     __tablename__ = "usuarios"
 
     id             = Column(Integer, primary_key=True, index=True)
     igreja_id      = Column(Integer, ForeignKey("igrejas.id"), nullable=False)
     nome           = Column(String(150), nullable=False)
+    cpf            = Column(String(14), unique=True, nullable=True)   # "000.000.000-00"
     email          = Column(String(150), unique=True, index=True, nullable=False)
     telefone       = Column(String(20), nullable=True)   # Número do WhatsApp
     senha_hash     = Column(String(255), nullable=False)

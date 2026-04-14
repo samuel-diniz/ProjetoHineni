@@ -22,7 +22,7 @@ load_dotenv()
 # Formato: postgresql://usuario:senha@host:porta/nome_do_banco
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://hineni:hineni123@localhost:5432/hineni_db"
+    "postgresql+pg8000://hineni:hineni123@localhost:5433/hineni_db"
 )
 
 # Cria o motor de conexão com o banco

@@ -95,7 +95,7 @@ def tela_login(page: ft.Page):
                             size=32,
                             weight=ft.FontWeight.BOLD,
                             color=ft.Colors.WHITE,
-                            letter_spacing=6
+                            style=ft.TextStyle(letter_spacing=6),
                         ),
                         ft.Text(
                             "Sistema de Escalas da Igreja",
@@ -144,18 +144,83 @@ def tela_login(page: ft.Page):
 
 
 def tela_cadastro_inicial(page: ft.Page):
-    """Tela de cadastro do Pastor Presidente + Igreja (primeiro uso)"""
+    """Tela de cadastro do Líder do Ministério + Igreja (primeiro uso)"""
     page.title = "Hineni - Cadastro Inicial"
+    import re
 
-    # Campos da Igreja
+    # ---- Campos da Igreja ----
+    campo_cnpj        = ft.TextField(
+        label="CNPJ da Igreja *",
+        hint_text="Digite os 14 números",
+        prefix_icon=ft.Icons.BUSINESS,
+        keyboard_type=ft.KeyboardType.NUMBER,
+    )
     campo_nome_igreja = ft.TextField(label="Nome da Igreja *", prefix_icon=ft.Icons.CHURCH)
-    campo_endereco    = ft.TextField(label="Endereço (opcional)", prefix_icon=ft.Icons.LOCATION_ON)
+    campo_cpf         = ft.TextField(
+        label="CPF do Líder *",
+        hint_text="Digite os 11 números",
+        prefix_icon=ft.Icons.BADGE,
+        keyboard_type=ft.KeyboardType.NUMBER,
+    )
+    campo_cep         = ft.TextField(
+        label="CEP *",
+        hint_text="Digite os 8 números",
+        prefix_icon=ft.Icons.LOCATION_ON,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        width=160,
+    )
+    campo_logradouro  = ft.TextField(
+        label="Logradouro *",
+        hint_text="Avenida Paulista",
+        prefix_icon=ft.Icons.MAP,
+        expand=True,
+    )
+    campo_numero      = ft.TextField(
+        label="Número",
+        hint_text="1578",
+        prefix_icon=ft.Icons.LABEL,
+        width=110,
+    )
+    campo_complemento = ft.TextField(
+        label="Complemento",
+        hint_text="Sala 3, Apto 12…",
+        prefix_icon=ft.Icons.EDIT,
+        width=200,
+    )
+    campo_bairro      = ft.TextField(
+        label="Bairro *",
+        hint_text="Centro",
+        prefix_icon=ft.Icons.LOCATION_CITY,
+        expand=True,
+    )
+    campo_cidade      = ft.TextField(
+        label="Cidade *",
+        hint_text="São Paulo",
+        prefix_icon=ft.Icons.LOCATION_ON,
+        expand=True,
+    )
+    campo_uf          = ft.TextField(
+        label="UF *",
+        hint_text="SP",
+        prefix_icon=ft.Icons.PUBLIC,
+        width=80,
+        max_length=2,
+        capitalization=ft.TextCapitalization.CHARACTERS,
+    )
+    campo_tel_igreja  = ft.TextField(
+        label="Telefone da Igreja (opcional)",
+        prefix_icon=ft.Icons.PHONE,
+        keyboard_type=ft.KeyboardType.PHONE,
+    )
 
-    # Campos do Pastor
-    campo_nome    = ft.TextField(label="Seu nome completo *", prefix_icon=ft.Icons.PERSON)
-    campo_email   = ft.TextField(label="E-mail *", keyboard_type=ft.KeyboardType.EMAIL, prefix_icon=ft.Icons.EMAIL)
-    campo_tel     = ft.TextField(label="WhatsApp (com DDD) *", keyboard_type=ft.KeyboardType.PHONE, prefix_icon=ft.Icons.PHONE)
-    campo_senha   = ft.TextField(label="Senha (mín. 6 caracteres) *", password=True, can_reveal_password=True, prefix_icon=ft.Icons.LOCK)
+    texto_cnpj_status = ft.Text("", size=12, italic=True)
+    loading_cnpj      = ft.ProgressRing(visible=False, width=16, height=16, color=COR_PRIMARIA)
+
+    # ---- Campos do Líder do Ministério ----
+    campo_nome  = ft.TextField(label="Seu nome completo *", prefix_icon=ft.Icons.PERSON)
+    campo_email = ft.TextField(label="E-mail *", keyboard_type=ft.KeyboardType.EMAIL, prefix_icon=ft.Icons.EMAIL)
+    campo_tel   = ft.TextField(label="WhatsApp (com DDD) *", keyboard_type=ft.KeyboardType.PHONE, prefix_icon=ft.Icons.PHONE)
+    campo_senha = ft.TextField(label="Senha (mín. 6 caracteres) *", password=True, can_reveal_password=True, prefix_icon=ft.Icons.LOCK)
 
     dropdown_genero = ft.Dropdown(
         label="Gênero *",
@@ -163,20 +228,28 @@ def tela_cadastro_inicial(page: ft.Page):
             ft.dropdown.Option("MASCULINO", "Masculino"),
             ft.dropdown.Option("FEMININO", "Feminino"),
         ],
-        value="MASCULINO"
+        value="MASCULINO",
+        width=180,
     )
-
     dropdown_cargo = ft.Dropdown(
         label="Cargo *",
-        options=[ft.dropdown.Option("Pastor", "Pastor")],
-        value="Pastor"
+        options=[
+            ft.dropdown.Option("Pastor", "Pastor"),
+            ft.dropdown.Option("Bispo", "Bispo"),
+            ft.dropdown.Option("Apóstolo", "Apóstolo"),
+            ft.dropdown.Option("Presbítero", "Presbítero"),
+            ft.dropdown.Option("Evangelista", "Evangelista"),
+        ],
+        value="Pastor",
+        expand=True,
     )
 
     def atualizar_cargos(e):
-        genero = dropdown_genero.value
-        if genero == "MASCULINO":
+        if dropdown_genero.value == "MASCULINO":
             dropdown_cargo.options = [
                 ft.dropdown.Option("Pastor", "Pastor"),
+                ft.dropdown.Option("Bispo", "Bispo"),
+                ft.dropdown.Option("Apóstolo", "Apóstolo"),
                 ft.dropdown.Option("Presbítero", "Presbítero"),
                 ft.dropdown.Option("Evangelista", "Evangelista"),
             ]
@@ -191,25 +264,185 @@ def tela_cadastro_inicial(page: ft.Page):
 
     dropdown_genero.on_change = atualizar_cargos
 
+    # ---- Limpeza no on_change: só dígitos, limite de tamanho ----
+    # Lógica: on_change remove não-dígitos e corta no máximo permitido.
+    # SÓ atualiza o campo se algo mudou → evita loop de cursor.
+    # on_blur faz a formatação visual (pontos, traço, barra).
+
+    def _so_digitos(valor: str, limite: int) -> str:
+        """Retorna apenas os dígitos do valor, até o limite."""
+        return re.sub(r'\D', '', valor or "")[:limite]
+
+    def on_cnpj_change(e):
+        limpo = _so_digitos(campo_cnpj.value, 14)
+        if campo_cnpj.value != limpo:
+            campo_cnpj.value = limpo
+            page.update()
+
+    def on_cpf_change(e):
+        limpo = _so_digitos(campo_cpf.value, 11)
+        if campo_cpf.value != limpo:
+            campo_cpf.value = limpo
+            page.update()
+
+    def on_cep_change(e):
+        limpo = _so_digitos(campo_cep.value, 8)
+        if campo_cep.value != limpo:
+            campo_cep.value = limpo
+            page.update()
+
+    campo_cnpj.on_change = on_cnpj_change
+    campo_cpf.on_change  = on_cpf_change
+    campo_cep.on_change  = on_cep_change
+
+    # ---- Funções de formatação (aplicadas só no on_blur) ----
+
+    def _fmt_cnpj(valor: str) -> str:
+        n = _so_digitos(valor, 14)
+        if len(n) < 14:
+            return n
+        return f"{n[:2]}.{n[2:5]}.{n[5:8]}/{n[8:12]}-{n[12:]}"
+
+    def _fmt_cep(valor: str) -> str:
+        n = _so_digitos(valor, 8)
+        if len(n) < 8:
+            return n
+        return f"{n[:5]}-{n[5:]}"
+
+    def _fmt_cpf(valor: str) -> str:
+        n = _so_digitos(valor, 11)
+        if len(n) < 11:
+            return n
+        return f"{n[:3]}.{n[3:6]}.{n[6:9]}-{n[9:]}"
+
+    def on_cpf_blur(e):
+        campo_cpf.value = _fmt_cpf(campo_cpf.value or "")
+        page.update()
+
+    campo_cpf.on_blur = on_cpf_blur
+
+    # ---- Auto-fill ao sair do campo CNPJ ----
+    async def buscar_dados_cnpj(e):
+        cnpj = _so_digitos(campo_cnpj.value, 14)
+        # Formata visualmente antes de consultar
+        campo_cnpj.value = _fmt_cnpj(cnpj)
+        page.update()
+
+        if len(cnpj) != 14:
+            return
+
+        loading_cnpj.visible = True
+        texto_cnpj_status.value = "Consultando CNPJ..."
+        texto_cnpj_status.color = ft.Colors.GREY_600
+        page.update()
+
+        try:
+            async with __import__('httpx').AsyncClient(timeout=10) as client:
+                resp = await client.get(f"http://localhost:8000/consulta/cnpj/{cnpj}")
+
+            if resp.status_code == 200:
+                dados = resp.json()
+                # Preenche os campos automaticamente com os dados da Receita Federal
+                nome_sugerido = dados.get("nome_fantasia") or dados.get("razao_social", "")
+                if nome_sugerido and not campo_nome_igreja.value:
+                    campo_nome_igreja.value = nome_sugerido
+                if dados.get("cep") and not campo_cep.value:
+                    campo_cep.value = _so_digitos(dados["cep"], 8)
+                if dados.get("logradouro") and not campo_logradouro.value:
+                    campo_logradouro.value = dados["logradouro"]
+                if dados.get("numero") and not campo_numero.value:
+                    campo_numero.value = dados["numero"]
+                if dados.get("complemento") and not campo_complemento.value:
+                    campo_complemento.value = dados["complemento"]
+                if dados.get("municipio") and not campo_bairro.value:
+                    # BrasilAPI retorna bairro separado no CNPJ? Não sempre —
+                    # se vier, preenchemos; caso contrário, o usuário preenche.
+                    pass
+                if dados.get("municipio") and not campo_cidade.value:
+                    campo_cidade.value = dados["municipio"]
+                if dados.get("uf") and not campo_uf.value:
+                    campo_uf.value = dados["uf"]
+                if dados.get("telefone") and not campo_tel_igreja.value:
+                    campo_tel_igreja.value = dados["telefone"]
+
+                situacao = dados.get("situacao_cadastral", "")
+                if situacao and situacao.upper() != "ATIVA":
+                    texto_cnpj_status.value = f"⚠ Situação: {situacao}"
+                    texto_cnpj_status.color = ft.Colors.ORANGE_700
+                else:
+                    texto_cnpj_status.value = "✓ CNPJ válido e ativo"
+                    texto_cnpj_status.color = ft.Colors.GREEN_700
+            elif resp.status_code == 404:
+                texto_cnpj_status.value = "CNPJ não encontrado na Receita Federal"
+                texto_cnpj_status.color = ft.Colors.RED_600
+            else:
+                erro = resp.json().get("detail", "Erro na consulta")
+                texto_cnpj_status.value = f"✗ {erro}"
+                texto_cnpj_status.color = ft.Colors.RED_600
+        except Exception as err:
+            texto_cnpj_status.value = f"Sem conexão para validar CNPJ: {err}"
+            texto_cnpj_status.color = ft.Colors.ORANGE_700
+
+        loading_cnpj.visible = False
+        page.update()
+
+    campo_cnpj.on_blur = buscar_dados_cnpj
+
+    # ---- Auto-fill ao sair do campo CEP ----
+    async def buscar_endereco_cep(e):
+        cep = _so_digitos(campo_cep.value, 8)
+        campo_cep.value = _fmt_cep(cep)
+        page.update()
+
+        if len(cep) != 8:
+            return
+        try:
+            async with __import__('httpx').AsyncClient(timeout=8) as client:
+                resp = await client.get(f"http://localhost:8000/consulta/cep/{cep}")
+            if resp.status_code == 200:
+                dados = resp.json()
+                # Preenche apenas campos ainda vazios
+                if dados.get("logradouro") and not campo_logradouro.value:
+                    campo_logradouro.value = dados["logradouro"]
+                if dados.get("complemento") and not campo_complemento.value:
+                    campo_complemento.value = dados["complemento"]
+                if dados.get("bairro") and not campo_bairro.value:
+                    campo_bairro.value = dados["bairro"]
+                if dados.get("municipio") and not campo_cidade.value:
+                    campo_cidade.value = dados["municipio"]
+                if dados.get("uf") and not campo_uf.value:
+                    campo_uf.value = dados["uf"]
+                page.update()
+        except Exception:
+            pass
+
+    campo_cep.on_blur = buscar_endereco_cep
+
     texto_erro = ft.Text("", color=ft.Colors.RED_600, size=13)
     btn_cadastrar = ft.ElevatedButton(
         "CADASTRAR",
         icon=ft.Icons.CHECK_CIRCLE,
         bgcolor=COR_PRIMARIA,
         color=ft.Colors.WHITE,
-        width=300,
+        width=320,
     )
 
     async def cadastrar(e):
         texto_erro.value = ""
 
-        # Validação básica
         campos_obrigatorios = [
-            (campo_nome_igreja, "nome da Igreja"),
-            (campo_nome, "seu nome"),
-            (campo_email, "e-mail"),
-            (campo_tel, "WhatsApp"),
-            (campo_senha, "senha"),
+            (campo_cnpj,        "CNPJ da Igreja"),
+            (campo_nome_igreja, "Nome da Igreja"),
+            (campo_cep,         "CEP"),
+            (campo_logradouro,  "Logradouro"),
+            (campo_bairro,      "Bairro"),
+            (campo_cidade,      "Cidade"),
+            (campo_uf,          "UF"),
+            (campo_nome,        "seu nome"),
+            (campo_cpf,         "CPF"),
+            (campo_email,       "e-mail"),
+            (campo_tel,         "WhatsApp"),
+            (campo_senha,       "senha"),
         ]
         for campo, nome in campos_obrigatorios:
             if not campo.value or not campo.value.strip():
@@ -228,15 +461,24 @@ def tela_cadastro_inicial(page: ft.Page):
         try:
             dados = {
                 "nome": campo_nome.value.strip(),
+                "cpf": campo_cpf.value.strip() or None,
                 "email": campo_email.value.strip(),
                 "telefone": campo_tel.value.strip(),
                 "senha": campo_senha.value,
                 "genero": dropdown_genero.value,
                 "cargo": dropdown_cargo.value,
-                "role": "PASTOR_PRESIDENTE",
+                "role": "LIDER_MINISTERIO",
                 "igreja": {
-                    "nome": campo_nome_igreja.value.strip(),
-                    "endereco": campo_endereco.value.strip() or None,
+                    "nome":        campo_nome_igreja.value.strip(),
+                    "cnpj":        campo_cnpj.value.strip(),
+                    "cep":         campo_cep.value.strip(),
+                    "logradouro":  campo_logradouro.value.strip(),
+                    "numero":      campo_numero.value.strip() or None,
+                    "complemento": campo_complemento.value.strip() or None,
+                    "bairro":      campo_bairro.value.strip(),
+                    "cidade":      campo_cidade.value.strip(),
+                    "uf":          campo_uf.value.strip().upper(),
+                    "telefone":    campo_tel_igreja.value.strip() or None,
                 }
             }
             await api.cadastrar_pastor_e_igreja(dados)
@@ -253,7 +495,7 @@ def tela_cadastro_inicial(page: ft.Page):
         "/cadastro-inicial",
         controls=[
             ft.AppBar(
-                title=ft.Text("Cadastro Inicial"),
+                title=ft.Text("Cadastro Inicial — Líder do Ministério"),
                 bgcolor=COR_PRIMARIA,
                 color=ft.Colors.WHITE,
                 leading=ft.IconButton(
@@ -264,17 +506,38 @@ def tela_cadastro_inicial(page: ft.Page):
             ),
             ft.Container(
                 content=ft.Column([
-                    ft.Text("Sua Igreja", size=18, weight=ft.FontWeight.BOLD, color=COR_PRIMARIA),
+                    # ---- Seção Igreja ----
+                    ft.Text("Dados da Igreja", size=18, weight=ft.FontWeight.BOLD, color=COR_PRIMARIA),
+
+                    # CNPJ com status de validação
+                    campo_cnpj,
+                    ft.Row([loading_cnpj, texto_cnpj_status], spacing=6),
+
                     campo_nome_igreja,
-                    campo_endereco,
+                    campo_tel_igreja,
+
+                    # CEP (ao sair, preenche os campos abaixo automaticamente)
+                    campo_cep,
+
+                    # Logradouro ocupa toda a largura
+                    campo_logradouro,
+
+                    # Número + Complemento na mesma linha
+                    ft.Row([campo_numero, campo_complemento], spacing=12),
+
+                    # Bairro + Cidade + UF na mesma linha
+                    ft.Row([campo_bairro, campo_cidade, campo_uf], spacing=12),
 
                     ft.Divider(height=20),
-                    ft.Text("Dados do Pastor Presidente", size=18, weight=ft.FontWeight.BOLD, color=COR_PRIMARIA),
+
+                    # ---- Seção Líder ----
+                    ft.Text("Dados do Líder do Ministério", size=18, weight=ft.FontWeight.BOLD, color=COR_PRIMARIA),
                     campo_nome,
+                    campo_cpf,
                     campo_email,
                     campo_tel,
                     campo_senha,
-                    ft.Row([dropdown_genero, dropdown_cargo], spacing=16),
+                    ft.Row([dropdown_genero, dropdown_cargo], spacing=12),
 
                     ft.Container(height=8),
                     texto_erro,

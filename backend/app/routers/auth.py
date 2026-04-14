@@ -40,23 +40,41 @@ def cadastrar_pastor_e_igreja(dados: schemas.UsuarioCriarComIgreja, db: Session 
             detail="E-mail já cadastrado"
         )
 
+    # Verifica se o CNPJ já está cadastrado
+    cnpj_existente = db.query(models.Igreja).filter(
+        models.Igreja.cnpj == dados.igreja.cnpj
+    ).first()
+    if cnpj_existente:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este CNPJ já está cadastrado no sistema"
+        )
+
     # 1. Cria a Igreja
     nova_igreja = models.Igreja(
         nome=dados.igreja.nome,
-        endereco=dados.igreja.endereco,
+        cnpj=dados.igreja.cnpj,
+        cep=dados.igreja.cep,
+        logradouro=dados.igreja.logradouro,
+        numero=dados.igreja.numero,
+        complemento=dados.igreja.complemento,
+        bairro=dados.igreja.bairro,
+        cidade=dados.igreja.cidade,
+        uf=dados.igreja.uf,
         telefone=dados.igreja.telefone,
     )
     db.add(nova_igreja)
     db.flush()  # Envia ao banco para obter o ID, mas ainda não confirma
 
-    # 2. Cria o Pastor Presidente dentro da Igreja
+    # 2. Cria o Líder do Ministério dentro da Igreja
     novo_usuario = models.Usuario(
         igreja_id=nova_igreja.id,
         nome=dados.nome,
+        cpf=dados.cpf,
         email=dados.email,
         telefone=dados.telefone,
         senha_hash=hash_senha(dados.senha),
-        role=models.RoleUsuario.PASTOR_PRESIDENTE,
+        role=models.RoleUsuario.LIDER_MINISTERIO,
         genero=dados.genero,
         cargo=dados.cargo,
     )
@@ -93,7 +111,7 @@ def cadastrar_usuario(
         )
 
     # Garante que o cadastro é na mesma Igreja do usuário logado
-    if usuario_atual.role != models.RoleUsuario.PASTOR_PRESIDENTE:
+    if usuario_atual.role != models.RoleUsuario.LIDER_MINISTERIO:
         igreja_id = usuario_atual.igreja_id
 
     # Verifica se e-mail já existe
@@ -106,6 +124,7 @@ def cadastrar_usuario(
     novo_usuario = models.Usuario(
         igreja_id=igreja_id,
         nome=dados.nome,
+        cpf=dados.cpf,
         email=dados.email,
         telefone=dados.telefone,
         senha_hash=hash_senha(dados.senha),
