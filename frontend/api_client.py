@@ -34,6 +34,39 @@ class APIClient:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
 
+    def _extrair_erro(self, response) -> str:
+        """
+        Extrai a mensagem de erro da resposta do backend de forma segura.
+
+        Lida com três situações:
+        - Resposta JSON normal: { "detail": "mensagem" }
+        - Erro de validação Pydantic: { "detail": [ { "loc": [...], "msg": "..." } ] }
+        - Resposta não-JSON (HTML de erro 500, corpo vazio, etc.)
+        """
+        try:
+            corpo = response.json()
+            detail = corpo.get("detail", "")
+
+            # Erro de validação do Pydantic: detail é uma lista de erros
+            if isinstance(detail, list):
+                msgs = []
+                for err in detail:
+                    # "loc" é o caminho do campo: ["body", "igreja", "bairro"]
+                    loc = err.get("loc", [])
+                    campo = loc[-1] if loc else ""
+                    msg   = err.get("msg", "valor inválido")
+                    msgs.append(f"Campo '{campo}': {msg}" if campo else msg)
+                return " | ".join(msgs) or f"Dados inválidos (HTTP {response.status_code})"
+
+            return str(detail) or f"Erro {response.status_code}"
+
+        except Exception:
+            # Resposta não é JSON (ex: HTML de erro 500) ou corpo vazio
+            return (
+                f"Erro {response.status_code} — o servidor retornou uma resposta inesperada. "
+                "Verifique se o backend está rodando corretamente."
+            )
+
     async def login(self, email: str, senha: str) -> dict:
         """
         Faz o login e salva o token.
@@ -49,9 +82,7 @@ class APIClient:
             self.token = dados["access_token"]
             self.usuario_atual = dados["usuario"]
             return dados
-        else:
-            erro = response.json().get("detail", "Erro ao fazer login")
-            raise Exception(erro)
+        raise Exception(self._extrair_erro(response))
 
     async def cadastrar_pastor_e_igreja(self, dados: dict) -> dict:
         """Cadastro inicial: Pastor Presidente + Igreja"""
@@ -65,7 +96,7 @@ class APIClient:
             self.token = dados_resposta["access_token"]
             self.usuario_atual = dados_resposta["usuario"]
             return dados_resposta
-        raise Exception(response.json().get("detail", "Erro no cadastro"))
+        raise Exception(self._extrair_erro(response))
 
     async def cadastrar_usuario(self, dados: dict, igreja_id: int) -> dict:
         """Cadastra um novo membro/líder"""
@@ -78,7 +109,7 @@ class APIClient:
             )
         if response.status_code == 201:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro no cadastro"))
+        raise Exception(self._extrair_erro(response))
 
     async def listar_usuarios(self, role: str = None) -> list:
         params = {"role": role} if role else {}
@@ -90,7 +121,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro ao listar usuários"))
+        raise Exception(self._extrair_erro(response))
 
     async def listar_departamentos(self) -> list:
         async with httpx.AsyncClient() as client:
@@ -100,7 +131,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro ao listar departamentos"))
+        raise Exception(self._extrair_erro(response))
 
     async def criar_departamento(self, nome: str, descricao: str = None, cor: str = "#3B82F6") -> dict:
         async with httpx.AsyncClient() as client:
@@ -111,7 +142,19 @@ class APIClient:
             )
         if response.status_code == 201:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro ao criar departamento"))
+        raise Exception(self._extrair_erro(response))
+
+    async def atualizar_departamento(self, departamento_id: int, dados: dict) -> dict:
+        """Edita nome, descrição ou cor de um departamento"""
+        async with httpx.AsyncClient() as client:
+            response = await client.put(
+                f"{API_BASE_URL}/departamentos/{departamento_id}",
+                json=dados,
+                headers=self._cabecalhos()
+            )
+        if response.status_code == 200:
+            return response.json()
+        raise Exception(self._extrair_erro(response))
 
     async def listar_membros_departamento(self, departamento_id: int) -> list:
         async with httpx.AsyncClient() as client:
@@ -121,7 +164,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro"))
+        raise Exception(self._extrair_erro(response))
 
     async def adicionar_membro_departamento(self, departamento_id: int, usuario_id: int, is_lider: bool = False) -> dict:
         async with httpx.AsyncClient() as client:
@@ -132,7 +175,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro"))
+        raise Exception(self._extrair_erro(response))
 
     async def listar_dias_culto(self) -> list:
         async with httpx.AsyncClient() as client:
@@ -142,7 +185,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro"))
+        raise Exception(self._extrair_erro(response))
 
     async def listar_escalas(self, departamento_id: int = None, mes: int = None, ano: int = None) -> list:
         params = {}
@@ -158,7 +201,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro"))
+        raise Exception(self._extrair_erro(response))
 
     async def criar_escala(self, departamento_id: int, mes: int, ano: int, prazo_limite: str = None) -> dict:
         payload = {"departamento_id": departamento_id, "mes": mes, "ano": ano}
@@ -173,7 +216,7 @@ class APIClient:
             )
         if response.status_code == 201:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro ao criar escala"))
+        raise Exception(self._extrair_erro(response))
 
     async def ver_escala(self, escala_id: int) -> list:
         async with httpx.AsyncClient() as client:
@@ -183,7 +226,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro"))
+        raise Exception(self._extrair_erro(response))
 
     async def adicionar_entrada_escala(self, escala_id: int, usuario_id: int,
                                         dia_culto_id: int, data: str, observacao: str = None) -> dict:
@@ -201,7 +244,7 @@ class APIClient:
             )
         if response.status_code == 201:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro"))
+        raise Exception(self._extrair_erro(response))
 
     async def publicar_escala(self, escala_id: int) -> dict:
         async with httpx.AsyncClient() as client:
@@ -211,7 +254,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro ao publicar escala"))
+        raise Exception(self._extrair_erro(response))
 
     async def listar_notificacoes(self, apenas_nao_lidas: bool = False) -> list:
         async with httpx.AsyncClient() as client:
@@ -222,7 +265,7 @@ class APIClient:
             )
         if response.status_code == 200:
             return response.json()
-        raise Exception(response.json().get("detail", "Erro"))
+        raise Exception(self._extrair_erro(response))
 
     def logout(self):
         """Limpa o token e dados do usuário"""

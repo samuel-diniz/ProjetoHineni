@@ -91,42 +91,35 @@ async def consultar_cnpj(cnpj: str):
 
     dados = response.json()
 
-    # A BrasilAPI separa o tipo ("AVENIDA", "RUA") do nome do logradouro.
-    # Precisamos combinar os dois para ter o endereço completo.
+    # A BrasilAPI retorna o tipo ("AVENIDA", "RUA") separado do nome da rua.
+    # Combinamos os dois para montar só o logradouro: "Avenida Conselheiro Carrão"
     tipo_logradouro = (
         dados.get("descricao_tipo_logradouro", "")
         or dados.get("tipo_logradouro", "")
         or ""
-    ).strip()
-    nome_logradouro = dados.get("logradouro", "").strip()
+    ).strip().title()   # "AVENIDA" → "Avenida"
 
-    # Ex: "AVENIDA" + "CONSELHEIRO CARRAO" → "AVENIDA CONSELHEIRO CARRAO"
+    nome_logradouro = dados.get("logradouro", "").strip().title()   # "CONSELHEIRO CARRAO" → "Conselheiro Carrão"
+
+    # Resultado: "Avenida Conselheiro Carrão" (só a rua, sem número/bairro/cidade)
     rua_completa = f"{tipo_logradouro} {nome_logradouro}".strip() if tipo_logradouro else nome_logradouro
 
-    partes_endereco = [
-        rua_completa,
-        dados.get("numero", ""),
-        dados.get("complemento", ""),
-        dados.get("bairro", ""),
-        dados.get("municipio", ""),
-        dados.get("uf", ""),
-    ]
-    endereco_completo = ", ".join(p for p in partes_endereco if p)
-
-    # Formata o CEP retornado
+    # Formata o CEP retornado (remove não-dígitos e coloca o traço)
     cep_raw = re.sub(r'\D', '', dados.get("cep", "") or "")
-    cep_formatado = f"{cep_raw[:5]}-{cep_raw[5:]}" if len(cep_raw) == 8 else ""
+    cep_formatado = f"{cep_raw[:5]}-{cep_raw[5:]}" if len(cep_raw) == 8 else None
 
+    # Cada parte do endereço vai no seu próprio campo — sem misturar
     return DadosCNPJ(
         razao_social=dados.get("razao_social", ""),
         nome_fantasia=dados.get("nome_fantasia") or None,
         cnpj=cnpj_limpo,
-        cep=cep_formatado or None,
-        logradouro=endereco_completo or None,
+        cep=cep_formatado,
+        logradouro=rua_completa or None,
         numero=dados.get("numero") or None,
         complemento=dados.get("complemento") or None,
-        municipio=dados.get("municipio") or None,
-        uf=dados.get("uf") or None,
+        bairro=dados.get("bairro", "").strip().title() or None,
+        municipio=dados.get("municipio", "").strip().title() or None,
+        uf=(dados.get("uf") or "").strip().upper() or None,
         telefone=dados.get("ddd_telefone_1") or None,
         situacao_cadastral=dados.get("descricao_situacao_cadastral") or None,
     )

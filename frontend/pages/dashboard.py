@@ -159,12 +159,12 @@ def tela_dashboard(page: ft.Page):
         )
 
     atalhos_list = [atalho(ft.Icons.CALENDAR_MONTH, "Escalas", "/escalas", "#1A237E")]
-    if role in ("LIDER", "PASTOR_PRESIDENTE"):
+    if role in ("LIDER", "LIDER_MINISTERIO"):
         atalhos_list += [
             atalho(ft.Icons.GROUP_ADD,   "Membros",       "/membros",       "#00897B"),
             atalho(ft.Icons.ADD_CHART,   "Nova Escala",   "/nova-escala",   "#E53935"),
         ]
-    if role == "PASTOR_PRESIDENTE":
+    if role == "LIDER_MINISTERIO":
         atalhos_list += [
             atalho(ft.Icons.CHURCH,      "Departamentos", "/departamentos", "#6A1B9A"),
             atalho(ft.Icons.EVENT_NOTE,  "Dias de Culto", "/dias_culto",    "#F57C00"),

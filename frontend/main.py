@@ -17,6 +17,7 @@ import flet as ft
 from pages.login import tela_login, tela_cadastro_inicial
 from pages.dashboard import tela_dashboard
 from pages.escalas import tela_lista_escalas, tela_nova_escala
+from pages.departamentos import tela_departamentos
 from api_client import api
 
 
@@ -72,6 +73,12 @@ def main(page: ft.Page):
                 page.go("/login")
                 return
             page.views.append(tela_nova_escala(page))
+
+        elif rota == "/departamentos":
+            if not api.token:
+                page.go("/login")
+                return
+            page.views.append(tela_departamentos(page))
 
         else:
             # Rota não encontrada - volta para o início

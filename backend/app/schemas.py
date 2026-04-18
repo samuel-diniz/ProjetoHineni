@@ -156,9 +156,10 @@ class DadosCNPJ(BaseModel):
     nome_fantasia:  Optional[str] = None
     cnpj:           str
     cep:            Optional[str] = None
-    logradouro:     Optional[str] = None
+    logradouro:     Optional[str] = None   # Só o nome da rua com tipo: "Avenida Paulista"
     numero:         Optional[str] = None
     complemento:    Optional[str] = None
+    bairro:         Optional[str] = None
     municipio:      Optional[str] = None
     uf:             Optional[str] = None
     telefone:       Optional[str] = None

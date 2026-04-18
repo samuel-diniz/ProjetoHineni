@@ -175,6 +175,13 @@ def tela_cadastro_inicial(page: ft.Page):
         prefix_icon=ft.Icons.MAP,
         expand=True,
     )
+    aviso_logradouro = ft.Text(
+        "",
+        size=11,
+        color=ft.Colors.ORANGE_700,
+        italic=True,
+        visible=False,
+    )
     campo_numero      = ft.TextField(
         label="Número",
         hint_text="1578",
@@ -264,6 +271,32 @@ def tela_cadastro_inicial(page: ft.Page):
 
     dropdown_genero.on_change = atualizar_cargos
 
+    # ---- Tipos de logradouro reconhecidos no Brasil ----
+    _TIPOS_LOGRADOURO = {
+        "rua", "avenida", "av", "alameda", "al", "travessa", "tv",
+        "rodovia", "estrada", "praça", "largo", "beco", "viela",
+        "quadra", "setor", "condomínio", "fazenda", "sitio", "sítio",
+        "vila", "parque", "jardim", "conjunto", "residencial",
+    }
+
+    def _verificar_tipo_logradouro(valor: str):
+        """
+        Verifica se o logradouro começa com um tipo reconhecido.
+        Se não, exibe um aviso pedindo ao usuário para completar.
+        """
+        if not valor:
+            aviso_logradouro.visible = False
+            return
+        primeira_palavra = valor.strip().split()[0].lower().rstrip(".")
+        if primeira_palavra not in _TIPOS_LOGRADOURO:
+            aviso_logradouro.value = (
+                "⚠ Os Correios não informaram o tipo deste logradouro. "
+                "Adicione manualmente: Rua, Avenida, Alameda, etc."
+            )
+            aviso_logradouro.visible = True
+        else:
+            aviso_logradouro.visible = False
+
     # ---- Limpeza no on_change: só dígitos, limite de tamanho ----
     # Lógica: on_change remove não-dígitos e corta no máximo permitido.
     # SÓ atualiza o campo se algo mudou → evita loop de cursor.
@@ -342,26 +375,40 @@ def tela_cadastro_inicial(page: ft.Page):
 
             if resp.status_code == 200:
                 dados = resp.json()
-                # Preenche os campos automaticamente com os dados da Receita Federal
+                # Preenche cada campo separadamente — só se ainda estiver vazio
+
                 nome_sugerido = dados.get("nome_fantasia") or dados.get("razao_social", "")
                 if nome_sugerido and not campo_nome_igreja.value:
                     campo_nome_igreja.value = nome_sugerido
+
+                # CEP: guarda só os dígitos (o on_blur vai formatar para 00000-000)
                 if dados.get("cep") and not campo_cep.value:
                     campo_cep.value = _so_digitos(dados["cep"], 8)
+
+                # Logradouro: "Avenida Conselheiro Carrão" (só a rua, sem número/bairro)
                 if dados.get("logradouro") and not campo_logradouro.value:
                     campo_logradouro.value = dados["logradouro"]
+                _verificar_tipo_logradouro(campo_logradouro.value)
+
+                # Número do endereço
                 if dados.get("numero") and not campo_numero.value:
                     campo_numero.value = dados["numero"]
+
+                # Complemento (nem sempre vem preenchido)
                 if dados.get("complemento") and not campo_complemento.value:
                     campo_complemento.value = dados["complemento"]
-                if dados.get("municipio") and not campo_bairro.value:
-                    # BrasilAPI retorna bairro separado no CNPJ? Não sempre —
-                    # se vier, preenchemos; caso contrário, o usuário preenche.
-                    pass
+
+                # Bairro (agora vem separado no schema DadosCNPJ)
+                if dados.get("bairro") and not campo_bairro.value:
+                    campo_bairro.value = dados["bairro"]
+
+                # Cidade e UF
                 if dados.get("municipio") and not campo_cidade.value:
                     campo_cidade.value = dados["municipio"]
                 if dados.get("uf") and not campo_uf.value:
                     campo_uf.value = dados["uf"]
+
+                # Telefone
                 if dados.get("telefone") and not campo_tel_igreja.value:
                     campo_tel_igreja.value = dados["telefone"]
 
@@ -412,6 +459,8 @@ def tela_cadastro_inicial(page: ft.Page):
                     campo_cidade.value = dados["municipio"]
                 if dados.get("uf") and not campo_uf.value:
                     campo_uf.value = dados["uf"]
+                # Avisa se o tipo do logradouro estiver faltando
+                _verificar_tipo_logradouro(campo_logradouro.value)
                 page.update()
         except Exception:
             pass
@@ -521,6 +570,7 @@ def tela_cadastro_inicial(page: ft.Page):
 
                     # Logradouro ocupa toda a largura
                     campo_logradouro,
+                    aviso_logradouro,
 
                     # Número + Complemento na mesma linha
                     ft.Row([campo_numero, campo_complemento], spacing=12),
